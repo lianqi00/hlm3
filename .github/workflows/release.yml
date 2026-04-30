@@ -38,11 +38,11 @@ jobs:
         run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
 
       - name: Sync version to package.json and Cargo.toml
-        shell: bash
+        shell: pwsh
         run: |
-          VERSION="${{ steps.get_version.outputs.VERSION }}"
-          sed -i "s/\"version\": \".*\"/\"version\": \"$VERSION\"/" package.json
-          sed -i "s/version = \".*\"/version = \"$VERSION\"/" src-tauri/Cargo.toml
+          $VERSION = "${{ steps.get_version.outputs.VERSION }}"
+          (Get-Content package.json -Raw) -replace '"version":\s*".*"', "`"version`": `"$VERSION`"" | Set-Content package.json -NoNewline -Encoding UTF8
+          (Get-Content src-tauri/Cargo.toml -Raw) -replace 'version\s*=\s*".*"', "version = `"$VERSION`"" | Set-Content src-tauri/Cargo.toml -NoNewline -Encoding UTF8
 
       - name: Build with Tauri
         uses: tauri-apps/tauri-action@v0
