@@ -1,0 +1,94 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+          cache: 'npm'
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Extract version from tag
+        id: get_version
+        shell: bash
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Sync version to package.json and Cargo.toml
+        shell: bash
+        run: |
+          VERSION="${{ steps.get_version.outputs.VERSION }}"
+          sed -i "s/\"version\": \".*\"/\"version\": \"$VERSION\"/" package.json
+          sed -i "s/version = \".*\"/version = \"$VERSION\"/" src-tauri/Cargo.toml
+
+      - name: Build with Tauri
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: 'HLM证书批量生成器 v${{ steps.get_version.outputs.VERSION }}'
+          releaseBody: 'See the assets to download and install this version.'
+          releaseDraft: false
+          prerelease: false
+
+      - name: Sync to Gitee Release
+        env:
+          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          VERSION="${{ steps.get_version.outputs.VERSION }}"
+          TAG="${{ github.ref_name }}"
+
+          # Get release info from GitHub to find assets
+          RELEASE=$(gh api repos/${{ github.repository }}/releases/tags/$TAG)
+          RELEASE_URL=$(echo "$RELEASE" | jq -r '.html_url')
+
+          # Create Gitee release
+          GITEE_RELEASE=$(curl -s -X POST "https://gitee.com/api/v5/repos/lianqi00/hlm3/releases" \
+            -d "access_token=$GITEE_TOKEN" \
+            -d "tag_name=$TAG" \
+            -d "name=HLM证书批量生成器 v$VERSION" \
+            -d "body=See the assets to download and install this version." \
+            -d "target_commitish=${{ github.sha }}")
+
+          GITEE_RELEASE_ID=$(echo "$GITEE_RELEASE" | jq -r '.id')
+
+          # Download assets from GitHub and upload to Gitee
+          ASSET_URLS=$(echo "$RELEASE" | jq -r '.assets[].browser_download_url')
+          for URL in $ASSET_URLS; do
+            FILENAME=$(basename "$URL")
+            echo "Downloading $FILENAME..."
+            curl -L -o "$FILENAME" "$URL"
+            echo "Uploading $FILENAME to Gitee..."
+            curl -s -X POST "https://gitee.com/api/v5/repos/lianqi00/hlm3/releases/$GITEE_RELEASE_ID/attach_files" \
+              -d "access_token=$GITEE_TOKEN" \
+              -F "file=@$FILENAME"
+            rm "$FILENAME"
+          done
+
+          echo "Release synced to Gitee: $RELEASE_URL"
