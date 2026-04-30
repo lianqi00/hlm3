@@ -41,10 +41,10 @@ jobs:
         shell: bash
         run: |
           VERSION="${{ steps.get_version.outputs.VERSION }}"
-          # Replace only the first occurrence of version in Cargo.toml (under [package])
-          sed -i "0,/^version = /s/^version = \".*\"/version = \"$VERSION\"/" src-tauri/Cargo.toml
-          # Replace version in package.json
-          sed -i "s/\"version\": \".*\"/\"version\": \"$VERSION\"/" package.json
+          # Use non-greedy match for package.json
+          sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" package.json
+          # Only replace the first version line (under [package] section) in Cargo.toml
+          sed -i "0,/^version = \"[^\"]*\"/s/^version = \"[^\"]*\"/version = \"$VERSION\"/" src-tauri/Cargo.toml
 
       - name: Build with Tauri
         uses: tauri-apps/tauri-action@v0
