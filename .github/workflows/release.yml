@@ -41,10 +41,10 @@ jobs:
         shell: bash
         run: |
           VERSION="${{ steps.get_version.outputs.VERSION }}"
-          # Use non-greedy match for package.json
-          sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" package.json
-          # Only replace the first version line (under [package] section) in Cargo.toml
-          sed -i "0,/^version = \"[^\"]*\"/s/^version = \"[^\"]*\"/version = \"$VERSION\"/" src-tauri/Cargo.toml
+          # Use awk to replace only line 3 (version under [package]) in Cargo.toml
+          awk -v ver="version = \"$VERSION\"" 'NR==3{$0=ver}1' src-tauri/Cargo.toml > src-tauri/Cargo.toml.tmp && mv src-tauri/Cargo.toml.tmp src-tauri/Cargo.toml
+          # Use node to safely replace version in package.json
+          node -e "const p=require('./package.json'); p.version='$VERSION'; require('fs').writeFileSync('./package.json', JSON.stringify(p, null, 2)+'\n')"
 
       - name: Build with Tauri
         uses: tauri-apps/tauri-action@v0
