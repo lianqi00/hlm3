@@ -74,20 +74,34 @@ jobs:
           TAG="${{ github.ref_name }}"
           EXE="HLM证书批量生成器_${VERSION}_x64.exe"
 
-          # Create Gitee release
-          GITEE_RELEASE=$(curl -s -X POST "https://gitee.com/api/v5/repos/lianqi00/hlm3/releases" \
-            -d "access_token=$GITEE_TOKEN" \
-            -d "tag_name=$TAG" \
-            -d "name=HLM证书批量生成器 v$VERSION" \
-            -d "body=See the assets to download and install this version." \
-            -d "target_commitish=${{ github.sha }}")
+          # Check if Gitee release already exists
+          GITEE_RELEASE=$(curl -s "https://gitee.com/api/v5/repos/lianqi00/hlm3/releases/tags/$TAG?access_token=$GITEE_TOKEN")
+          GITEE_RELEASE_ID=$(echo "$GITEE_RELEASE" | jq -r '.id // empty')
 
-          GITEE_RELEASE_ID=$(echo "$GITEE_RELEASE" | jq -r '.id')
+          if [ -z "$GITEE_RELEASE_ID" ]; then
+            # Create new Gitee release
+            echo "Creating new Gitee release..."
+            GITEE_RELEASE=$(curl -s -X POST "https://gitee.com/api/v5/repos/lianqi00/hlm3/releases" \
+              -d "access_token=$GITEE_TOKEN" \
+              -d "tag_name=$TAG" \
+              -d "name=HLM证书批量生成器 v$VERSION" \
+              -d "body=See the assets to download and install this version." \
+              -d "target_commitish=${{ github.sha }}")
+            GITEE_RELEASE_ID=$(echo "$GITEE_RELEASE" | jq -r '.id')
+          else
+            echo "Gitee release already exists (ID: $GITEE_RELEASE_ID)"
+          fi
 
           # Upload exe to Gitee
           echo "Uploading $EXE to Gitee..."
-          curl -s -X POST "https://gitee.com/api/v5/repos/lianqi00/hlm3/releases/$GITEE_RELEASE_ID/attach_files" \
+          UPLOAD_RESPONSE=$(curl -s -X POST "https://gitee.com/api/v5/repos/lianqi00/hlm3/releases/$GITEE_RELEASE_ID/attach_files" \
             -d "access_token=$GITEE_TOKEN" \
-            -F "file=@$EXE"
+            -F "file=@$EXE")
+
+          UPLOAD_ERROR=$(echo "$UPLOAD_RESPONSE" | jq -r '.message // empty')
+          if [ -n "$UPLOAD_ERROR" ]; then
+            echo "Upload failed: $UPLOAD_ERROR"
+            exit 1
+          fi
 
           echo "Release synced to Gitee: https://gitee.com/lianqi00/hlm3/releases/tag/$TAG"
