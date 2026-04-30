@@ -65,13 +65,4 @@ jobs:
           EXE="HLM证书批量生成器_${VERSION}_x64.exe"
           gh release create "$TAG" "$EXE" --title "HLM证书批量生成器 v$VERSION" --notes "See the assets to download and install this version."
 
-      - name: Sync to Gitee Release
-        uses: trustedinster/sync-release-gitee@v1.3
-        with:
-          gitee_owner: lianqi00
-          gitee_repo: hlm3
-          gitee_token: ${{ secrets.GITEE_TOKEN }}
-          github_owner: lianqi00
-          github_repo: hlm3
-          gitee_upload_retry_times: 5
-          debug: true
+
