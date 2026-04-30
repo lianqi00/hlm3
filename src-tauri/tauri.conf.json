@@ -25,7 +25,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["exe"],
+    "targets": ["nsis"],
     "icon": [
       "icons/icon.png",
       "icons/128x128.png",
