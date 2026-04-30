@@ -25,7 +25,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": ["exe"],
     "icon": [
       "icons/icon.png",
       "icons/128x128.png",
